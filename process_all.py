@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from os import path, makedirs, listdir
+import os
+os.environ['CDF_LIB'] = '/home/alienware2/opt/cdf37_0-dist/lib'
 from shutil import move
 from spacepy import pycdf
 import numpy as np
@@ -82,11 +84,11 @@ def process_view(out_dir, subject, action, subaction, camera):
         poses_3d_univ = np.array(cdf['Pose'])
         poses_3d_univ = poses_3d_univ.reshape(poses_3d_univ.shape[1], 32, 3)
     with pycdf.CDF(path.join(subj_dir, 'Poses_D3_Positions_mono', base_filename + '.cdf')) as cdf:
-        poses_3d = np.array(cdf['Pose'])
-        poses_3d = poses_3d.reshape(poses_3d.shape[1], 32, 3)
+        poses_3d_mono = np.array(cdf['Pose'])
+        poses_3d_mono = poses_3d.reshape(poses_3d_mono.shape[1], 32, 3)
 
     # Infer camera intrinsics
-    camera_int = infer_camera_intrinsics(poses_2d, poses_3d)
+    camera_int = infer_camera_intrinsics(poses_2d, poses_3d_mono)
     camera_int_univ = infer_camera_intrinsics(poses_2d, poses_3d_univ)
 
     frame_indices = select_frame_indices_to_include(subject, poses_3d_univ)
@@ -126,7 +128,7 @@ def process_view(out_dir, subject, action, subaction, camera):
     return {
         'pose/2d': poses_2d[frame_indices],
         'pose/3d-univ': poses_3d_univ[frame_indices],
-        'pose/3d': poses_3d[frame_indices],
+        'pose/3d-mono': poses_3d_mono[frame_indices],
         'intrinsics/' + camera: camera_int,
         'intrinsics-univ/' + camera: camera_int_univ,
         'frame': frames,
@@ -136,28 +138,80 @@ def process_view(out_dir, subject, action, subaction, camera):
         'subaction': np.full(frames.shape, int(subaction)),
     }
 
+def process_view_3D(out_dir, subject, action, subaction):
+    subj_dir = path.join('extracted', subject)
+    base_filename = metadata.get_base_filename(subject, action, subaction)
 
-def process_subaction(subject, action, subaction):
+    # Load joint position annotations
+    with pycdf.CDF(path.join(subj_dir, 'Poses_D3_Positions', base_filename + '.cdf')) as cdf:
+        poses_3d = np.array(cdf['Pose'])
+        poses_3d = poses_3d.reshape(poses_3d.shape[1], 32, 3)
+    with pycdf.CDF(path.join(subj_dir, 'TOF', base_filename + '.cdf')) as cdf:
+        tof_range = np.array(cdf['RangeFrames'])
+        tof_range = tof_range.reshape(tof_range.shape[3], 144, 176)
+        tof_indicator = np.array(cdf['Indicator'])
+        tof_indicator = tof_indicator.reshape(tof_indicator.shape[1])
+        tof_index = np.array(cdf['Index'])
+        tof_index = tof_index.reshape(tof_index.shape[1])
+        tof_intensity = np.array(cdf['IntensityFrames'])
+        tof_intensity = tof_intensity.reshape(tof_intensity.shape[3], 144, 176)
+
+    # extract frame indices for pose
+    frame_indices_pose = np.argwhere(tof_indicator==1)
+    frame_indices_pose = frame_indices_pose.reshape(frame_indices_pose.shape[0])
+    frame_indices_tof = tof_index[frame_indices_pose] - 1
+    frame_indices_tof = frame_indices_tof.astype(int)
+    frames = frame_indices_pose + 1
+
+    return {
+        'pose/3d': poses_3d[frame_indices_pose],
+        'tof/range': tof_range[frame_indices_tof],
+        'tof/intensity': tof_intensity[frame_indices_tof],
+        'frame': frames,
+        'subject': np.full(frames.shape, int(included_subjects[subject])),
+        'action': np.full(frames.shape, int(action)),
+        'subaction': np.full(frames.shape, int(subaction)),
+    }
+
+
+def process_subaction(subject, action, subaction, _3D):
     datasets = {}
+    
+    subj_dir = path.join('extracted', subject)
+    base_filename = metadata.get_base_filename(subject, action, subaction)
 
     out_dir = path.join('processed', subject, metadata.action_names[action] + '-' + subaction)
-    makedirs(out_dir, exist_ok=True)
-
-    for camera in tqdm(metadata.camera_ids, ascii=True, leave=False):
-        if (subject, action, subaction, camera) in blacklist:
-            continue
-
-        try:
-            annots = process_view(out_dir, subject, action, subaction, camera)
-        except:
-            print('Error processing sequence, skipping: ', repr((subject, action, subaction, camera)))
-            continue
-
+    
+    if _3D:
+        if not path.isfile(path.join(subj_dir, 'Poses_D3_Positions', base_filename + '.cdf')):
+            return
+        if not path.isfile(path.join(subj_dir, 'TOF', base_filename + '.cdf')):
+            return
+        makedirs(out_dir, exist_ok=True)
+        annots = process_view_3D(out_dir, subject, action, subaction)
+        
         for k, v in annots.items():
             if k in datasets:
                 datasets[k].append(v)
             else:
                 datasets[k] = [v]
+        
+    else:
+        makedirs(out_dir, exist_ok=True)
+        for camera in tqdm(metadata.camera_ids, ascii=True, leave=False):
+            if (subject, action, subaction, camera) in blacklist:
+                continue
+            try:
+                annots = process_view(out_dir, subject, action, subaction, camera)
+            except:
+                print('Error processing sequence, skipping: ', repr((subject, action, subaction, camera)))
+                continue
+
+            for k, v in annots.items():
+                if k in datasets:
+                    datasets[k].append(v)
+                else:
+                    datasets[k] = [v]
 
     if len(datasets) == 0:
         return
@@ -169,7 +223,7 @@ def process_subaction(subject, action, subaction):
             f.create_dataset(name, data=data)
 
 
-def process_all():
+def process_all(_3D=False):
     sequence_mappings = metadata.sequence_mappings
 
     subactions = []
@@ -182,8 +236,8 @@ def process_all():
         ]
 
     for subject, action, subaction in tqdm(subactions, ascii=True, leave=False):
-        process_subaction(subject, action, subaction)
+        process_subaction(subject, action, subaction, _3D)
 
 
 if __name__ == '__main__':
-  process_all()
+    process_all(1)
