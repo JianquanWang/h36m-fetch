@@ -42,6 +42,10 @@ def extract_all():
                   path.join(out_dir, 'Poses_D3_Positions_mono_universal')),
       extract_tgz('archives/Videos_{}.tgz'.format(subject_id),
                   path.join(out_dir, 'Videos'))
+      extract_tgz('archives/TOF_{}.tgz'.format(subject_id),
+                  path.join(out_dir, 'TOF'))
+      extract_tgz('archives/Poses_D3_Positions_{}.tgz'.format(subject_id),
+                  path.join(out_dir, 'Poses_D3_Positions'))
 
 
 if __name__ == '__main__':
