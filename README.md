@@ -5,6 +5,9 @@ human pose dataset containing 3.6 million human poses and corresponding
 images. The scripts in this repository make it easy to download,
 extract, and preprocess the images and annotations from Human3.6M.
 
+This version is an expanding of https://github.com/anibali/h36m-fetch, 
+provided 3D pose estimation dataset download and processing.
+
 ## Requirements
 
 * Python 3
@@ -29,7 +32,8 @@ $ docker-compose run --rm --user="$(id -u):$(id -g)" main python3 <script>
 4. Use the `download_all.py` script to download the dataset,
    `extract_all.py` to extract the downloaded archives, and
    `process_all.py` to preprocess the dataset into an easier to use
-   format.
+   format. In 'process_all.py', you can set up parameter '_3D' as true 
+   for processing TOF and Pose_D3_Position data only.
 
 ## Frame sampling
 
