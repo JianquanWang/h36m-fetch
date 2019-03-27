@@ -30,6 +30,9 @@ class H36M_Metadata:
 
     def get_base_filename(self, subject, action, subaction, camera):
         return '{}.{}'.format(self.sequence_mappings[subject][(action, subaction)], camera)
+    def get_base_filename(self, subject, action, subaction):
+        return '{}'.format(self.sequence_mappings[subject][(action, subaction)])
+
 
 
 def load_h36m_metadata():
@@ -42,3 +45,4 @@ if __name__ == '__main__':
     print(metadata.sequence_mappings)
     print(metadata.action_names)
     print(metadata.camera_ids)
+    print(metadata.get_base_filename('S1', '2', '2'))
