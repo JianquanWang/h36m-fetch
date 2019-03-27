@@ -77,6 +77,9 @@ def download_all(phpsessid):
              'download=1&filepath=Poses/D3_Positions_mono_universal&filename=SubjectSpecific_{}.tgz'.format(id)),
             ('Videos_{}.tgz'.format(subject_id),
              'download=1&filepath=Videos&filename=SubjectSpecific_{}.tgz'.format(id)),
+            ('TOF+{}.tgz'.format(subject_id), 'download=1&filepath=Depth/TOF&filename=SubjectSpecific_{}.tgz'.format(id)),
+            ('Poses_D3_Positions_{}.tgz'.format(subject_id),
+             'download=1&filepath=Poses/D3_Positions&filename=SubjectSpecific_{}.tgz'.format(id)),
         ]
 
     out_dir = 'archives'
