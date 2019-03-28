@@ -5,8 +5,8 @@ human pose dataset containing 3.6 million human poses and corresponding
 images. The scripts in this repository make it easy to download,
 extract, and preprocess the images and annotations from Human3.6M.
 
-<bold>This version is an expanding of https://github.com/anibali/h36m-fetch, 
-provided 3D pose estimation dataset download and processing.</bold>
+<b>This version is an expanding of https://github.com/anibali/h36m-fetch, 
+provided 3D pose estimation dataset download and processing.</b>
 
 ## Requirements
 
